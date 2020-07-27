@@ -1,4 +1,4 @@
-# Project (Name TBD)
+# Teensy Audio Project (Name TBD)
 
 This project is a momentary glitch machine, consisting of four triggerable momentary granular delay effects, random additional effects, and a wavetable LFO modulation source.
 
@@ -30,7 +30,7 @@ Additionally, each trigger has a slight chance to randomly enable one of these e
 - [ ] Extra modes
 - [ ] Clock/quantized input
 - [ ] CV DAC output
-- [ ] Maybe (???) refactor grain effect to use two circular buffers so it keeps recording while the other buffer continues writing (see note in effect.h)
+- [ ] Maybe (???) refactor grain effect to use two circular buffers so it keeps recording while the other buffer is frozen during playback (see note in effect.h)
 
 #### Hardware
 - [ ] Voltage regulator circuit
