@@ -25,6 +25,8 @@
 #define POT_SMOOTH_OUTLIER_LOW (32 * 20) / 100
 #define POT_SMOOTH_OUTLIER_HIGH ((32 * 80) / 100) + 1
 
+#define CLOCK_TIMEOUT 2000
+
 /**
  * LED abstraction with some blinking functionality.
  */
@@ -140,6 +142,24 @@ class ControlState {
     Potentiometer* _pots[MAX_POTS];
     DigitalLed* _leds[MAX_DIGITAL_LEDS];
     GateTrigger* _gtls[MAX_GTLS];
+};
+
+class ClockInput {
+   public:
+    float clock_interval;
+    bool is_clocked;
+    ClockInput(int pin);
+    void setup(void);
+    void loop(void);
+    void reset(void);
+
+   private:
+    int _pin;
+    int _state;
+    int _last_state;
+    unsigned long _last_ms;
+    int _duration_total;
+    int _durations;
 };
 
 #endif

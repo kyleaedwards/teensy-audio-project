@@ -114,6 +114,48 @@ GateTrigger* ControlState::get_gtl(int index) {
     return _gtls[index];
 };
 
+ClockInput::ClockInput(int pin) {
+    _pin = pin;
+    _state = 1;
+    _last_state = 1;
+    _duration_total = 0.0;
+    _durations = 0;
+};
+
+void ClockInput::setup() { pinMode(_pin, INPUT_PULLUP); };
+
+void ClockInput::reset() {
+    is_clocked = false;
+    clock_interval = 0.0;
+    _duration_total = 0.0;
+    _durations = 0;
+}
+
+void ClockInput::loop(unsigned long ms) {
+    int state = digitalRead(_pin);
+    unsigned long duration = ms - _last_ms;
+
+    if (_state == 0 && state == 1 && duration < BTN_DEBOUNCE) {
+        return;
+    }
+
+    _last_state = _state;
+    _state = state;
+
+    down = _state == 0;
+    pressed = _last_state == 1 && down;
+    if (pressed) {
+        if (is_clocked) {
+            clock_interval = ms - _last_ms;
+        } else {
+            is_clocked = true;
+        }
+        _last_ms = ms;
+    } else if (duration > CLOCK_TIMEOUT) {
+        is_clocked = false;
+    }
+};
+
 Button::Button(int pin) {
     _pin = pin;
     _state = 1;

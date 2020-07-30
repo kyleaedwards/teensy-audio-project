@@ -5,48 +5,44 @@
 #include <Wire.h>
 
 #include "control.h"
-#include "effect.h"
+#include "circular.h"
 #include "lfo.h"
 
-#define GRANULAR_DELAY 15000
+#define GRANULAR_DELAY 20000
 #define READ_AVERAGE 8
 #define READ_RESOLUTION 12
 #define WRITE_RESOLUTION 12
+#define TOTAL_MIXERS 4
 
 // GUItool: begin automatically generated code
-AudioInputI2S i2s2;                               // xy=66,126
-AudioEffectGranular granular_l;                   // xy=185,79
-GrainScrubEffect scrub_l;                         // CUSTOM
-AudioMixer4 mix1_l;                               // xy=311,74
-AudioSynthWaveformSine sine_l;                    // xy=311,126
-AudioEffectMultiply mult_l;                       // xy=430,99
-AudioMixer4 mix2_l;                               // xy=544,98
-AudioEffectBitcrusher bitcrusher_l;               // xy=668,119
-AudioMixer4 mix3_l;                               // xy=792,109
-AudioFilterStateVariable vcf_l;                   // xy=906,140
-AudioMixer4 mix4_l;                               // xy=1026,113
-AudioOutputI2S i2s1;                              // xy=1159,161
+AudioInputI2S i2s2;                  // xy=66,126
+AudioEffectGranular granular_l;      // xy=185,79
+GrainScrubEffectCircular scrub_l;    // CUSTOM
+AudioSynthWaveformSine sine_l;       // xy=311,126
+AudioEffectMultiply mult_l;          // xy=430,99
+AudioEffectBitcrusher bitcrusher_l;  // xy=668,119
+AudioFilterStateVariable vcf_l;      // xy=906,140
+AudioMixer4 mixers[TOTAL_MIXERS];    // CUSTOM
+AudioOutputI2S i2s1;                 // xy=1159,161
 AudioConnection patchCord1(i2s2, 0, scrub_l, 0);  // CUSTOM
-AudioConnection patchCord2(i2s2, 0, mix1_l, 0);
-AudioConnection patchCord3(scrub_l, 0, mix1_l, 1);  // CUSTOM
-AudioConnection patchCord4(mix1_l, 0, mult_l, 0);
-AudioConnection patchCord5(mix1_l, 0, mix2_l, 0);
+AudioConnection patchCord2(i2s2, 0, mixers[0], 0);
+AudioConnection patchCord3(scrub_l, 0, mixers[0], 1);  // CUSTOM
+AudioConnection patchCord4(mixers[0], 0, mult_l, 0);
+AudioConnection patchCord5(mixers[0], 0, mixers[1], 0);
 AudioConnection patchCord6(sine_l, 0, mult_l, 1);
-AudioConnection patchCord7(mult_l, 0, mix2_l, 1);
-AudioConnection patchCord8(mix2_l, bitcrusher_l);
-AudioConnection patchCord9(mix2_l, 0, mix3_l, 0);
-AudioConnection patchCord10(bitcrusher_l, 0, mix3_l, 1);
-AudioConnection patchCord11(mix3_l, 0, vcf_l, 0);
-AudioConnection patchCord12(mix3_l, 0, mix4_l, 0);
-AudioConnection patchCord13(vcf_l, 0, mix4_l, 1);
-AudioConnection patchCord14(vcf_l, 1, mix4_l, 2);
-AudioConnection patchCord15(vcf_l, 2, mix4_l, 3);
-AudioConnection patchCord16(mix4_l, 0, i2s1, 0);
-AudioConnection patchCord17(mix4_l, 0, i2s1, 1);
+AudioConnection patchCord7(mult_l, 0, mixers[1], 1);
+AudioConnection patchCord8(mixers[1], bitcrusher_l);
+AudioConnection patchCord9(mixers[1], 0, mixers[2], 0);
+AudioConnection patchCord10(bitcrusher_l, 0, mixers[2], 1);
+AudioConnection patchCord11(mixers[2], 0, vcf_l, 0);
+AudioConnection patchCord12(mixers[2], 0, mixers[3], 0);
+AudioConnection patchCord13(vcf_l, 0, mixers[3], 1);
+AudioConnection patchCord14(vcf_l, 1, mixers[3], 2);
+AudioConnection patchCord15(vcf_l, 2, mixers[3], 3);
+AudioConnection patchCord16(mixers[3], 0, i2s1, 0);
+AudioConnection patchCord17(mixers[3], 0, i2s1, 1);
 AudioControlSGTL5000 sgtl5000_1;  // xy=84,233
 // GUItool: end automatically generated code
-
-AudioMixer4 *mixers_l[4] = {&mix1_l, &mix2_l, &mix3_l, &mix4_l};
 
 /**
  * Pins
@@ -104,7 +100,7 @@ WavetableLFO rev_wobble_lfo(500, TBL_REV_WOBBLE_LEN, TBL_REV_WOBBLE);
 WavetableLFO saw_lfo(500, TBL_SAW_LEN, TBL_SAW);
 
 #define MATRIX_LFO_LEN 6
-WavetableLFO* MATRIX_LFO[MATRIX_LFO_LEN] = {
+WavetableLFO *MATRIX_LFO[MATRIX_LFO_LEN] = {
     &ramp_lfo, &rev_wobble_lfo, &tri_lfo, &wobble_lfo, &saw_lfo, &square_lfo};
 
 WavetableMatrixLFO matrix_lfo(500, MATRIX_LFO_LEN, MATRIX_LFO);
@@ -115,6 +111,7 @@ WavetableMatrixLFO matrix_lfo(500, MATRIX_LFO_LEN, MATRIX_LFO);
 bool mod_start = false;
 bool mod_length = false;
 bool mod_speed = false;
+bool reset_on_trig = false;
 
 #define NUM_EFFECTS 5
 int fx[4] = {-1, -1, -1, -1};
@@ -132,10 +129,10 @@ void enable_random_fx(int index) {
     }
     int effect = random(NUM_EFFECTS);
     int probability = random(100);
-        Serial.print("Probability: ");
-        Serial.print(fx_probabilities[effect]);
-        Serial.print(" > ");
-        Serial.println(probability);
+    Serial.print("Probability: ");
+    Serial.print(fx_probabilities[effect]);
+    Serial.print(" > ");
+    Serial.println(probability);
     if (fx_enabled[effect] || fx_probabilities[effect] <= probability) {
         Serial.print("Effect: ");
         Serial.println(effect);
@@ -151,32 +148,32 @@ void enable_random_fx(int index) {
     switch (effect) {
         case EffectType::LOWPASS:
             Serial.println("Lowpass ON");
-            mix4_l.gain(0, 0);
-            mix4_l.gain(1, bandpass_enabled ? 0.475 : 0.95);
+            mixers[3].gain(0, 0);
+            mixers[3].gain(1, bandpass_enabled ? 0.475 : 0.95);
             if (bandpass_enabled) {
-                mix4_l.gain(2, 0.475);
+                mixers[3].gain(2, 0.475);
             }
             break;
         case EffectType::BANDPASS:
             Serial.println("Bandpass ON");
-            mix4_l.gain(0, 0);
-            mix4_l.gain(2, lowpass_enabled ? 0.475 : 0.95);
+            mixers[3].gain(0, 0);
+            mixers[3].gain(2, lowpass_enabled ? 0.475 : 0.95);
             if (lowpass_enabled) {
-                mix4_l.gain(1, 0.475);
+                mixers[3].gain(1, 0.475);
             }
             break;
         case EffectType::AMPLITUDE_MODULATION:
             Serial.println("AM ON");
-            mix2_l.gain(0, 0);
-            mix2_l.gain(1, 0.95);
+            mixers[1].gain(0, 0);
+            mixers[1].gain(1, 0.95);
             break;
         case EffectType::MIX:
             Serial.println("Mix ON");
             break;
         case EffectType::SAMPLE_RATE:
             Serial.println("Sample Rate ON");
-            mix3_l.gain(0, 0);
-            mix3_l.gain(1, 0.95);
+            mixers[2].gain(0, 0);
+            mixers[2].gain(1, 0.95);
             break;
     }
     fx[index] = effect;
@@ -192,26 +189,26 @@ void disable_random_fx(int index) {
     switch (fx[index]) {
         case EffectType::LOWPASS:
             Serial.println("Lowpass OFF");
-            mix4_l.gain(bandpass_enabled ? 2 : 0, 0.95);
-            mix4_l.gain(1, 0);
+            mixers[3].gain(bandpass_enabled ? 2 : 0, 0.95);
+            mixers[3].gain(1, 0);
             break;
         case EffectType::BANDPASS:
             Serial.println("Bandpass OFF");
-            mix4_l.gain(lowpass_enabled ? 1 : 0, 0.95);
-            mix4_l.gain(2, 0);
+            mixers[3].gain(lowpass_enabled ? 1 : 0, 0.95);
+            mixers[3].gain(2, 0);
             break;
         case EffectType::AMPLITUDE_MODULATION:
             Serial.println("AM OFF");
-            mix2_l.gain(0, 0.95);
-            mix2_l.gain(1, 0);
+            mixers[1].gain(0, 0.95);
+            mixers[1].gain(1, 0);
             break;
         case EffectType::MIX:
             Serial.println("Mix OFF");
             break;
         case EffectType::SAMPLE_RATE:
             Serial.println("Sample Rate OFF");
-            mix3_l.gain(0, 0.95);
-            mix3_l.gain(1, 0);
+            mixers[2].gain(0, 0.95);
+            mixers[2].gain(1, 0);
             break;
     }
     fx[index] = -1;
@@ -226,13 +223,13 @@ unsigned long prev[8];
 void setup() {
     // If the "AudioMemoryUsageMax()" is reporting a number close or equal
     // to what we have, just increase it.
-    AudioMemory(20);
+    AudioMemory(13);
 
     sgtl5000_1.enable();
     sgtl5000_1.inputSelect(AUDIO_INPUT_LINEIN);
     sgtl5000_1.lineInLevel(13);
 
-    sgtl5000_1.volume(0.35);
+    sgtl5000_1.volume(0.4);
 
     sine_l.amplitude(1);
     sine_l.frequency(220.0);
@@ -246,22 +243,22 @@ void setup() {
     scrub_l.begin(del_l, GRANULAR_DELAY);
     scrub_l.setLengthPos(1.0);
 
-    mix1_l.gain(0, 0.95);
-    mix1_l.gain(1, 0);
-    mix1_l.gain(2, 0);
-    mix1_l.gain(3, 0);
-    mix2_l.gain(0, 0.95);
-    mix2_l.gain(1, 0);
-    mix2_l.gain(2, 0);
-    mix2_l.gain(3, 0);
-    mix3_l.gain(0, 0.95);
-    mix3_l.gain(1, 0);
-    mix3_l.gain(2, 0);
-    mix3_l.gain(3, 0);
-    mix4_l.gain(0, 0.95);
-    mix4_l.gain(1, 0);
-    mix4_l.gain(2, 0);
-    mix4_l.gain(3, 0);
+    mixers[0].gain(0, 0.95);
+    mixers[0].gain(1, 0);
+    mixers[0].gain(2, 0);
+    mixers[0].gain(3, 0);
+    mixers[1].gain(0, 0.95);
+    mixers[1].gain(1, 0);
+    mixers[1].gain(2, 0);
+    mixers[1].gain(3, 0);
+    mixers[2].gain(0, 0.95);
+    mixers[2].gain(1, 0);
+    mixers[2].gain(2, 0);
+    mixers[2].gain(3, 0);
+    mixers[3].gain(0, 0.95);
+    mixers[3].gain(1, 0);
+    mixers[3].gain(2, 0);
+    mixers[3].gain(3, 0);
 
     analogReadResolution(READ_RESOLUTION);
     analogReadAveraging(READ_AVERAGE);
@@ -291,8 +288,12 @@ void loop() {
 
         ctrl_offset = ctrl.get_potentiometer(0)->value / 4095.0;
         ctrl_waveshape = ctrl.get_potentiometer(1)->value / 4095.0;
-        ctrl_speed = ctrl.get_potentiometer(2)->value / 4.095;
+        ctrl_speed = (4095.0 - ctrl.get_potentiometer(2)->value) / 4.095;
+
         ctrl_depth = ctrl.get_potentiometer(3)->value / 4095.0;
+        if (ctrl_depth < 0.05) {
+          ctrl_depth = 0.0;
+        }
 
         matrix_lfo.set_shape(ctrl_waveshape);
         matrix_lfo.set_time((int)ctrl_speed + 50);
@@ -316,7 +317,7 @@ void loop() {
             scrub_l.setLengthPos(mod);
         }
         if (mod_speed) {
-            scrub_l.setSpeed(0.125 + 3.875 * mod);
+            scrub_l.setSpeed(pow(2.0, (mod - 0.5) * 6.0));
         }
 
         Button *btn = ctrl.get_button(0);
@@ -326,11 +327,7 @@ void loop() {
         GateTrigger *trig4 = ctrl.get_gtl(3);
 
         if (btn->long_click) {
-            Serial.println("Mode select -- LONG");
-        } else if (btn->medium_click) {
-            Serial.println("Mode select -- MEDIUM");
-        } else if (btn->short_click) {
-            Serial.println("Mode select -- SHORT");
+            reset_on_trig = !reset_on_trig;
         }
 
         bool start_freeze = false;
@@ -378,35 +375,39 @@ void loop() {
             scrub_l.setSpeed(1.0);
             disable_random_fx(3);
         }
+        
+        bool trig_on = trig1->gate || trig2->gate || trig3->gate || trig4->gate;
 
         if (start_freeze) {
             scrub_l.start();
-            mix1_l.gain(0, 0);
-            mix1_l.gain(1, 0.95);
+            mixers[0].gain(0, 0);
+            mixers[0].gain(1, 0.95);
+            if (reset_on_trig && !trig_on) {
+                matrix_lfo.reset();
+            }
         }
 
-        // scrub_l.debug();
-
-        bool trig_on = trig1->gate || trig2->gate || trig3->gate || trig4->gate;
         if (stop_freeze && !trig_on) {
             scrub_l.stop();
-            mix1_l.gain(0, 0.95);
-            mix1_l.gain(1, 0);
+            mixers[0].gain(0, 0.95);
+            mixers[0].gain(1, 0);
         }
 
         bool mix_enabled = fx_enabled[EffectType::MIX];
         if (mix_enabled) {
-            mix1_l.gain(1, mod);
+            mixers[0].gain(1, mod);
         }
 
         matrix_lfo.loop(cm);
+        // scrub_l.debug();
+
         if (cm - prev[0] > 500) {
             prev[0] = cm;
-             Serial.print("processor: ");
-             Serial.print(AudioProcessorUsageMax());
-             Serial.print("%    Memory: ");
-             Serial.print(AudioMemoryUsageMax());
-             Serial.println();
+            Serial.print("processor: ");
+            Serial.print(AudioProcessorUsageMax());
+            Serial.print("%    Memory: ");
+            Serial.print(AudioMemoryUsageMax());
+            Serial.println();
             AudioProcessorUsageMaxReset();
             AudioMemoryUsageMaxReset();
         }
