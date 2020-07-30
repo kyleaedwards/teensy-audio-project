@@ -26,12 +26,8 @@ Additionally, each trigger has a slight chance to randomly enable one of these e
 ## Todos
 
 #### Software
-- [ ] Explore feasibility of a stereo signal path
-- [ ] Extra modes
 - [ ] Clock/quantized input
 - [ ] CV DAC output
-- [ ] Maybe (???) refactor grain effect to use two circular buffers so it keeps recording while the other buffer is frozen during playback (see note in effect.h)
-- [ ] Customize LFO wavetables
 
 #### Hardware
 - [ ] Voltage regulator circuit
@@ -40,7 +36,5 @@ Additionally, each trigger has a slight chance to randomly enable one of these e
 - [ ] CV DAC output
 
 ## Ideas
-- Reset LFO on trig in
-- Hold mode button causes pots to set other values (filter resonance, bit reduction, default grain length, etc...)
 - Additional mode makes grain repeat random as well
 - Latching option
